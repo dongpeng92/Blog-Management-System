@@ -21,22 +21,29 @@ var showPost = function () {
 
     // show 20 lines
     for(var i=0; i<20 && (i+offset) < posts.length; i++){
-        html += `
+        html = `
              <tr id="tr_${i+offset}">
                 <td>
-                    <h4>Username: ${users[posts[i+offset].userId-1].username}</h4><br />
+                    <h4>Username: ${users[posts[i+offset].userId-1].name}</h4><br />
                    <h3>Title: ${posts[i+offset].title}</h3><br />
                    <p>Description: ${posts[i+offset].body}</p><br />
                    <p>
-                        <!--disabled="${likes[posts[i+offset].postId]}"-->
                         <button id="like_btn_${i+offset}">Like</button>
                         <button id="comment_btn_${i+offset}">Comments</button>
                         <button id="del_btn_${i+offset}">Delete</button>
                    </p>
                 </td>
              </tr>`;
+
+        document.getElementById("posts").insertAdjacentHTML('beforeend', html);
+        if(likes.includes(posts[i+offset].id)){
+            document.getElementById("like_btn_"+(i+offset).toString()).style.color="blue";
+        }
+
     };
-    document.getElementById("posts").insertAdjacentHTML('beforeend', html);
+};
+
+function checkLike(likes, id) {
 
 }
 
@@ -62,6 +69,8 @@ if(!localStorage.a_users || !localStorage.a_posts || !localStorage.a_comments){
                                 var likes = [];
                                 localStorage.setItem("a_likes", JSON.stringify(likes));
                                 console.log("hello3");
+                                var div =document.getElementById("get_post");
+                                div.parentNode.removeChild(div);
                                 showPost();
                                 showPost = throttle(showPost, 1000);
                             },
@@ -99,9 +108,13 @@ function scroll() {
 jQuery(document).on('click', 'button[id^="comment_btn_"]', function () {
     var tr_id = jQuery(this).attr('id').replace('comment_btn_', 'tr_');
     var tr_details = tr_id.replace('tr_', 'tr_details_');
+    var add_com = tr_id.replace('tr_', 'add_com_');
     var id = tr_id.replace('tr_', '');
+    var add_body = tr_id.replace('tr_', 'add_body_');
+    var add_name = tr_id.replace('tr_', 'add_name_');
+    var add_email = tr_id.replace('tr_', 'add_email_');
 
-    var find_comments = findComments(id+1);
+    var find_comments = findComments(parseInt(id)+1);
     console.log(find_comments);
 
     if(jQuery("tr[id=" + tr_details +"]").length == 0) {
@@ -112,8 +125,10 @@ jQuery(document).on('click', 'button[id^="comment_btn_"]', function () {
             html += `<p>${i}: ${find_comments[i].body}</p>`;
         }
 
-        html += `<input style="width:800px" type="text" placeholder="add new comments" />
-                 <button>Submit</button>
+        html += `<input style="width:200px" type="text" placeholder="name" id="${add_name}" />
+                 <input style="width:300px" type="text" placeholder="email" id="${add_email}" /><br />
+                 <input style="width:800px" type="text" placeholder="add new comments" id="${add_body}" />
+                 <button id="${add_com}">Submit</button>
                 </td>
               </tr>`;
         jQuery("#"+tr_id).after(html);
@@ -132,6 +147,37 @@ function findComments(id) {
     }
     return find_comments;
 }
+
+// add comments
+jQuery(document).on('click', 'button[id^="add_com_"]', function () {
+    var tr_id = jQuery(this).attr('id').replace('add_com_', 'tr_');
+    var p_id = tr_id.replace('tr_', '');
+    var comment_btn_id = tr_id.replace('tr_', 'comment_btn_');
+
+    var comments = JSON.parse(localStorage.a_comments);
+    var posts = JSON.parse(localStorage.a_posts);
+
+    var postid = posts[p_id].id;
+    var body = jQuery("#add_body_" + p_id).val();
+    var name = jQuery("#add_name_" + p_id).val();
+    var email = jQuery("#add_email_" + p_id).val();
+
+    if(name != "" && email != "" && body !=""){
+        var new_com = {
+            "postId": postid,
+            "id": comments.length,
+            "body": body,
+            "name": name,
+            "email": email
+        };
+        comments.push(new_com);
+        localStorage.a_comments = JSON.stringify(comments);
+    }
+
+    jQuery("#posts").find("tr").remove();
+    showPost();
+    jQuery('#'+ comment_btn_id).click();
+});
 
 // delete button
 jQuery(document).on('click', 'button[id^="del_btn_"]', function () {
@@ -156,16 +202,25 @@ jQuery(document).on('click', 'button[id^="like_btn_"]', function () {
 
     var likes = JSON.parse(localStorage.a_likes);
     var posts = JSON.parse(localStorage.a_posts);
-    var like= {
-        "postId": posts[id].id,
-        "liked": true
-    };
-    document.getElementById("like_btn_"+id).disabled=true;
 
-    likes.push(like);
-    localStorage.a_likes = JSON.stringify(likes);
-
+    var like_id = posts[id].id;
+    if(likes.includes(posts[id].id)){
+        var index = likes.indexOf(like_id);
+        likes.splice(index,1);
+        localStorage.a_likes = JSON.stringify(likes);
+        jQuery("#posts").find("tr").remove();
+    } else {
+        likes.push(like_id);
+        localStorage.a_likes = JSON.stringify(likes);
+    }
     showPost();
+
+
+});
+
+// add post
+jQuery(document).on('click', 'button[id="add_post"]', function () {
+
 });
 
 window.addEventListener('scroll', scroll);
