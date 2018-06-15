@@ -31,6 +31,7 @@ var showPost = function () {
                         <button id="like_btn_${i+offset}">Like</button>
                         <button id="comment_btn_${i+offset}">Comments</button>
                         <button id="del_btn_${i+offset}">Delete</button>
+                        <button id="edit_btn_${i+offset}">Edit</button>
                    </p>
                 </td>
              </tr>`;
@@ -43,8 +44,12 @@ var showPost = function () {
     };
 };
 
-function checkLike(likes, id) {
-
+// scroll function
+var scroll = function () {
+    var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+    if ( (scrollY + window.innerHeight) >= (document.body.offsetHeight - 20)) {
+        showPost();
+    }
 }
 
 if(!localStorage.a_users || !localStorage.a_posts || !localStorage.a_comments){
@@ -72,7 +77,7 @@ if(!localStorage.a_users || !localStorage.a_posts || !localStorage.a_comments){
                                 var div =document.getElementById("get_post");
                                 div.parentNode.removeChild(div);
                                 showPost();
-                                showPost = throttle(showPost, 1000);
+                                scroll = throttle(scroll, 1000);
                             },
                             error: function (err) {
                                 console.log(err);
@@ -93,15 +98,7 @@ if(!localStorage.a_users || !localStorage.a_posts || !localStorage.a_comments){
     var div =document.getElementById("get_post");
     div.parentNode.removeChild(div);
     showPost();
-    showPost = throttle(showPost, 1000);
-}
-
-// scroll function
-function scroll() {
-    var scrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
-    if ( (scrollY + window.innerHeight) >= (document.body.offsetHeight - 20)) {
-        showPost();
-    }
+    scroll = throttle(scroll, 1000);
 }
 
 // show comments button
@@ -114,7 +111,8 @@ jQuery(document).on('click', 'button[id^="comment_btn_"]', function () {
     var add_name = tr_id.replace('tr_', 'add_name_');
     var add_email = tr_id.replace('tr_', 'add_email_');
 
-    var find_comments = findComments(parseInt(id)+1);
+    var posts = JSON.parse(localStorage.a_posts);
+    var find_comments = findComments(parseInt(posts[id].id));
     console.log(find_comments);
 
     if(jQuery("tr[id=" + tr_details +"]").length == 0) {
@@ -165,17 +163,18 @@ jQuery(document).on('click', 'button[id^="add_com_"]', function () {
     if(name != "" && email != "" && body !=""){
         var new_com = {
             "postId": postid,
-            "id": comments.length,
+            "id": parseInt(comments.length)+1,
             "body": body,
             "name": name,
             "email": email
         };
         comments.push(new_com);
         localStorage.a_comments = JSON.stringify(comments);
+    } else {
+        alert("Please enter all fields!")
     }
 
-    jQuery("#posts").find("tr").remove();
-    showPost();
+    refreshTable();
     jQuery('#'+ comment_btn_id).click();
 });
 
@@ -208,7 +207,7 @@ jQuery(document).on('click', 'button[id^="like_btn_"]', function () {
         var index = likes.indexOf(like_id);
         likes.splice(index,1);
         localStorage.a_likes = JSON.stringify(likes);
-        jQuery("#posts").find("tr").remove();
+        refreshTable();
     } else {
         likes.push(like_id);
         localStorage.a_likes = JSON.stringify(likes);
@@ -220,7 +219,75 @@ jQuery(document).on('click', 'button[id^="like_btn_"]', function () {
 
 // add post
 jQuery(document).on('click', 'button[id="add_post"]', function () {
+    var post_userid = jQuery("#add_userid").val();
+    var post_title = jQuery("#add_title").val();
+    var post_body = jQuery("#add_body").val();
 
+    var posts = JSON.parse(localStorage.a_posts);
+
+    if(post_userid && post_title && post_body && findUser(parseInt(post_userid))){
+        var post = {
+            "userId": parseInt(post_userid),
+            "title": post_title,
+            "body": post_body,
+            "id": parseInt(posts.length)+1
+        };
+        posts.unshift(post);
+        localStorage.a_posts = JSON.stringify(posts);
+        refreshTable();
+    } else {
+        alert("Please enter valid value");
+    }
 });
+
+function findUser(id) {
+    var users = JSON.parse(localStorage.a_users);
+    for(var i = 0; i < users.length; i++) {
+        if(users[i].id == id){
+            return true;
+        }
+    }
+    return false;
+}
+
+// edit button
+jQuery(document).on('click', 'button[id^="edit_btn_"]', function () {
+    var tr_id = jQuery(this).attr('id').replace('edit_btn_', 'tr_');
+    var tr_details = tr_id.replace('tr_', 'tr_details_');
+    var id = tr_id.replace('tr_', '');
+    var btn_edit_id = tr_id.replace('tr_', 'btn_edit_');
+    jQuery("tr[id=" + tr_details +"]").remove();
+
+    var posts = JSON.parse(localStorage.a_posts);
+
+    if(jQuery("tr[id=" + tr_details +"]").length == 0) {
+        jQuery("#"+tr_id).after(`
+        <tr id="${tr_details}">
+            <td>
+                <label>Title: </label><input style="width:780px" id="title" value="${posts[id].title}" /><br />
+                <label>Body: </label><textarea style="width:780px" rows="3" id="body"}">${posts[id].body}</textarea><br />
+                <button id="${btn_edit_id}">Save</button>
+            </td>
+        </tr>
+        `);
+
+        document.getElementById(btn_edit_id).addEventListener('click', function () {
+            var title_new = jQuery("#"+tr_details + " #title").val();
+            var body_new = jQuery("#"+tr_details + " #body").val();
+
+            posts[id].title = title_new;
+            posts[id].body = body_new;
+
+            localStorage.a_posts = JSON.stringify(posts);
+
+            refreshTable();
+        });
+    }
+});
+
+function refreshTable() {
+    jQuery("#posts").find("tr").remove();
+    showPost();
+}
 
 window.addEventListener('scroll', scroll);
